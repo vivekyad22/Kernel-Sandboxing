@@ -1,3 +1,99 @@
 # Kernel-Sandboxing
 
+chroot
+A chroot is basically a special directory on your computer which prevents applications, if run from inside that directory, from accessing files outside the directory. In many ways, a chroot is like installing another operating system inside your existing operating system.
+Technically-speaking, chroot temporarily changes the root directory (which is normally /) to the chroot directory (for example, /var/chroot). As the root directory is the top of the filesystem hierarchy, applications are unable to access directories higher up than the root directory, and so are isolated from the rest of the system. This prevents applications inside the chroot from interfering with files elsewhere on your computer.
+
+Generally, you should think of a chroot as a way to temporarily recreate an operating system environment from a subset of your filesystem. This can mean switching out your normal utilities for experimental versions, it can allow you to see how applications behave in an uncontaminated environment, and it can help you with recovery operations, bootstrapping a system, or creating an extra barrier to break out of for a would-be attacker.
+
+Reinstalling the bootloader.
+Rebuilding the initramfs image.
+Upgrading or downgrading packages.
+Resetting a forgotten password.
+
+Before running /usr/bin/chroot the script mounts api filesystems like /proc and makes /etc/resolv.conf available from the chroot.
+Mount the temporary api filesystems:
+# cd /mnt/arch
+# mount -t proc proc proc/
+# mount --rbind /sys sys/
+# mount --rbind /dev dev/
+
+To use an internet connection in the chroot environment copy over the DNS details:
+# cp /etc/resolv.conf etc/resolv.conf
+
+sudo apt-get update
+sudo apt-get install dchroot debootstrap
+Now that we have the appropriate tools, we just need to specify a directory that we want to use as our environment root. We will create a directory called test in our root directory:
+
+sudo mkdir /test
+
+sudo nano /etc/schroot/schroot.conf
+We are on an Ubuntu 12.04 system currently, but let's say that we want to test out some packages available on Ubuntu 13.10, code named "Saucy Salamander". We can do that by creating an entry that looks like this:
+
+[saucy]
+description=Ubuntu Saucy
+location=/test
+priority=3
+users=demouser
+groups=sbuild
+root-groups=root
+
+Now, all we need to do to install a system under our chroot target is type:
+
+sudo debootstrap --variant=buildd --arch amd64 saucy /test/ http://mirror.cc.columbia.edu/pub/linux/ubuntu/archive/
+
+Afterwards, you'll need to call the debootstrap command a second time to complete the installation, using something like:
+
+sudo chroot /test /debootstrap/debootstrap --second-stage
+
+Now, we're going to need to mount these filesystems within our guest:
+
+sudo mount proc /test/proc -t proc
+sudo mount sysfs /test/sys -t sysfs
+We'll also want to copy our /etc/hosts file so that we will have access to the correct network information:
+
+cp /etc/hosts /test/etc/hosts
+Finally, we can enter the chroot environment through a command like this:
+
+sudo chroot /test/ /bin/bash
+
+While there are certainly other technologies like Docker that provide more complete isolation, these chroot environments are easy to create and manage and are available from within the host operating system, which is advantageous at times. It is a good tool to have and is extremely light-weight.
+
+RECOVERY 
+-----------------------------------------------------------------
+Performing the chroot
+cd /
+mount -t ext3 /dev/sda1 /mnt
+mount -t proc proc /mnt/proc
+mount -t sysfs sys /mnt/sys
+mount -o bind /dev /mnt/dev
+If your /boot directory is on a different partition from your /, and you want to manipulate files on it (e.g., if you'll be working with GRUB, performing a kernel upgrade, etc.), you'll also need to mount that partition. If it's at /dev/sda2 and its filetype is ext2, then do:
+
+mount -t ext2 /dev/sda2 /mnt/boot
+Similarly for any other parts of your filesystem (/var, /usr) that reside on separate partitions but which you need access to. Generally when you're chrooting to fix something you won't need access to /home, so you don't need to bother with it.
+
+(It's also possible to mount filesystems after you've chrooted, but it's smarter to do so beforehand. The reason is that when you do it after, the outside/kernel environment won't know about the mounted filesystems, so if you forget to umount them before exiting the chroot, the system won't know to umount them when it shuts down, either. This could damage those filesystems.)
+
+If you've setup your network and want to use it in the chrooted system, copy over /etc/resolv.conf so that you'll be able to resolve domain names:
+
+cp -L /etc/resolv.conf /mnt/etc/resolv.conf
+Now you're ready to move into the mounted filesystem:
+
+chroot /mnt /bin/bash
+
+
+
+
+
+
+
+
+
+swapon swapoff
+
+
+
+Fakeroot
+
+
 
