@@ -1,6 +1,7 @@
 # Kernel-Sandboxing
 
 chroot
+-----------------------------------------------------------------------------------------------------------------------------
 A chroot is basically a special directory on your computer which prevents applications, if run from inside that directory, from accessing files outside the directory. In many ways, a chroot is like installing another operating system inside your existing operating system.
 Technically-speaking, chroot temporarily changes the root directory (which is normally /) to the chroot directory (for example, /var/chroot). As the root directory is the top of the filesystem hierarchy, applications are unable to access directories higher up than the root directory, and so are isolated from the rest of the system. This prevents applications inside the chroot from interfering with files elsewhere on your computer.
 
@@ -59,6 +60,8 @@ sudo chroot /test/ /bin/bash
 
 While there are certainly other technologies like Docker that provide more complete isolation, these chroot environments are easy to create and manage and are available from within the host operating system, which is advantageous at times. It is a good tool to have and is extremely light-weight.
 
+
+
 RECOVERY 
 -----------------------------------------------------------------
 Performing the chroot
@@ -84,16 +87,67 @@ chroot /mnt /bin/bash
 
 
 
+Fakeroot
+------------------------------------------------------------------------------------------
 
+fakechroot runs a command in an environment were is additional
+       possibility to use chroot(8) command without root privileges.  This is
+       useful for allowing users to create own chrooted environment with
+       possibility to install another packages without need for root
+       privileges.
 
+This is very dirty hack, but it works. I mean you can use debootstrap on
+your user account without root privileges.
+
+An example session from my system:
+
+dexter@pepper!sid:~$ fakeroot
+root@pepper!sid:~# export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin
+root@pepper!sid:~# /usr/sbin/chroot /tmp/fakeroot /bin/bash
+root@pepper:/tmp/fakeroot# cd /
+root@pepper:/# id
+uid=0(root) gid=0(root) groups=1001(dexter)
+root@pepper:/# apt-get install libfreetype6-dev
+Reading Package Lists...
+
+akechroot replaces some libc library functions (chroot(2), open(2), etc.) by ones that simulate the effect of being called with root privileges.
+
+These wrapper functions are in a shared library /usr/lib/fakechroot/libfakechroot.so which is loaded through the LD_PRELOAD mechanism of the dynamic loader. (See ld.so(8))
+
+In fake chroot you can install Debian bootstrap with debootstrap command. In this environment you can use i.e. apt-get(8) command to install another packages. You don't need a special privileges and you can run it from common user's account.
+
+fakechroot fakeroot debootstrap sid /tmp/sid
 
 
 
 swapon swapoff
+--------------------------------------------------------------------------------------------------------------------------------------
+What command can be used to force release everything in swap partition back to memory ?
+
+Presume that I have enough memory
+
+You can also clear your swap by running swapoff -a and then swapon -a as root instead of rebooting to achieve the same effect.
+
+http://askubuntu.com/questions/103242/is-it-safe-to-turn-swap-off-permanently/103871#103871
+
+http://www.thegeekstuff.com/2010/08/how-to-add-swap-space/
+
+You can either use a dedicated hard drive partition to add new swap space, or create a swap file on an existing filesystem and use it as swap space.
 
 
 
-Fakeroot
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
