@@ -1,5 +1,10 @@
 # Kernel-Sandboxing
 
+Managing,customizing & recovery of Applications & kernel using chroot, e2fsck, menuconfig & fakeroot . 
+
+
+
+
 chroot
 -----------------------------------------------------------------------------------------------------------------------------
 A chroot is basically a special directory on your computer which prevents applications, if run from inside that directory, from accessing files outside the directory. In many ways, a chroot is like installing another operating system inside your existing operating system.
@@ -95,6 +100,14 @@ fakechroot runs a command in an environment were is additional
        useful for allowing users to create own chrooted environment with
        possibility to install another packages without need for root
        privileges.
+       
+       Gives a fake root environment. This package is intended to enable something like: dpkg-buildpackage -rfakeroot i.e. to remove the need to become root for a package build. This is done by setting LD_PRELOAD to libfakeroot.so, which provides wrappers around getuid, chown, chmod, mknod, stat, ..., thereby creating a fake root environment. If you don't understand any of this, you do not need fakeroot!
+       
+As long as you are within the fakeroot shell, it looks like if you are root - as long as you do not try to do anything that really needs root privileges. And this is exactly what a packaging tool need to make packages that will make sense on any machine.
+
+In fact, when you use fakeroot for packaging, what you want to achieve is to make the tools you run under fakeroot to see your files as owned by root. Nothing more, nothing less. So in fact, su or sudo will not work for getting the right file ownership.
+
+       
 
 This is very dirty hack, but it works. I mean you can use debootstrap on
 your user account without root privileges.
