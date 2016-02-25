@@ -136,10 +136,20 @@ You can either use a dedicated hard drive partition to add new swap space, or cr
 
 
 
-KERNEL PATCHING
+KERNEL PATCHING & CUSTOMIZATION
 -----------------------------------------------------------------------------------------
 http://www.carlos-roque.com/2015/05/20/building-and-installing-a-patched-ubuntu-kernel-for-the-surface-pro-3/
 https://www.kernel.org/doc/Documentation/applying-patches.txt
+
+
+http://www.howtogeek.com/howto/ubuntu/how-to-customize-your-ubuntu-kernel/
+https://www.howtoforge.com/kernel_compilation_ubuntu_p2
+http://www.cyberciti.biz/faq/debian-ubuntu-building-installing-a-custom-linux-kernel/
+
+
+
+
+
 
 
 
