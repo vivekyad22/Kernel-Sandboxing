@@ -65,7 +65,7 @@ sudo chroot /test/ /bin/bash
 
 While there are certainly other technologies like Docker that provide more complete isolation, these chroot environments are easy to create and manage and are available from within the host operating system, which is advantageous at times. It is a good tool to have and is extremely light-weight.
 
-
+http://askubuntu.com/questions/28099/how-to-restore-a-system-after-accidentally-removing-all-kernels
 
 RECOVERY 
 -----------------------------------------------------------------
