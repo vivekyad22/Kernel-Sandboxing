@@ -2,167 +2,175 @@
 
 Managing,customizing & recovery of Applications & kernel using chroot, e2fsck, menuconfig & fakeroot . 
 
-
-
-
 chroot
------------------------------------------------------------------------------------------------------------------------------
-A chroot is basically a special directory on your computer which prevents applications, if run from inside that directory, from accessing files outside the directory. In many ways, a chroot is like installing another operating system inside your existing operating system.
-Technically-speaking, chroot temporarily changes the root directory (which is normally /) to the chroot directory (for example, /var/chroot). As the root directory is the top of the filesystem hierarchy, applications are unable to access directories higher up than the root directory, and so are isolated from the rest of the system. This prevents applications inside the chroot from interfering with files elsewhere on your computer.
-
-Generally, you should think of a chroot as a way to temporarily recreate an operating system environment from a subset of your filesystem. This can mean switching out your normal utilities for experimental versions, it can allow you to see how applications behave in an uncontaminated environment, and it can help you with recovery operations, bootstrapping a system, or creating an extra barrier to break out of for a would-be attacker.
+===========================================================================================================================
+In many ways, a chroot is like installing another operating system inside your existing operating system.
+Technically-speaking, chroot temporarily changes the root directory (which is normally /) to the chroot directory (for example, /var/chroot). 
+As the root directory is the top of the filesystem hierarchy, applications are unable to access directories higher up than the root directory, and so are isolated from the rest of the system.
+This prevents applications inside the chroot from interfering with files elsewhere on your computer.
+Generally, you should think of a chroot as a way to temporarily recreate an operating system environment from a subset of your filesystem.
+While there are certainly other technologies like Docker that provide more complete isolation, these chroot environments are easy to create and manage and are available from within the host operating system, which is advantageous at times. It is a good tool to have and is extremely light-weight.
 
 Reinstalling the bootloader.
 Rebuilding the initramfs image.
 Upgrading or downgrading packages.
 Resetting a forgotten password.
 
-Before running /usr/bin/chroot the script mounts api filesystems like /proc and makes /etc/resolv.conf available from the chroot.
-Mount the temporary api filesystems:
-# cd /mnt/arch
-# mount -t proc proc proc/
-# mount --rbind /sys sys/
-# mount --rbind /dev dev/
+What is a bind mount?
+A bind mount is an alternate view of a directory tree. Classically, mounting creates a view of a storage device as a directory tree. A bind mount instead takes an existing directory tree and replicates it under a different point. The directories and files in the bind mount are the same as the original. Any modification on one side is immediately reflected on the other side, since the two views show the same data.
 
-To use an internet connection in the chroot environment copy over the DNS details:
-# cp /etc/resolv.conf etc/resolv.conf
+If there are mount points under /some/where, their contents are not visible under /else/where. Instead of bind, you can use rbind, also replicate mount points underneath /some/where. For example, if /some/where/mnt is a mount point then
 
-sudo apt-get update
-sudo apt-get install dchroot debootstrap
-Now that we have the appropriate tools, we just need to specify a directory that we want to use as our environment root. We will create a directory called test in our root directory:
-
-sudo mkdir /test
-
-sudo nano /etc/schroot/schroot.conf
-We are on an Ubuntu 12.04 system currently, but let's say that we want to test out some packages available on Ubuntu 13.10, code named "Saucy Salamander". We can do that by creating an entry that looks like this:
-
-[saucy]
-description=Ubuntu Saucy
-location=/test
-priority=3
-users=demouser
-groups=sbuild
-root-groups=root
-
-Now, all we need to do to install a system under our chroot target is type:
-
-sudo debootstrap --variant=buildd --arch amd64 saucy /test/ http://mirror.cc.columbia.edu/pub/linux/ubuntu/archive/
-
-Afterwards, you'll need to call the debootstrap command a second time to complete the installation, using something like:
-
-sudo chroot /test /debootstrap/debootstrap --second-stage
-
-Now, we're going to need to mount these filesystems within our guest:
-
-sudo mount proc /test/proc -t proc
-sudo mount sysfs /test/sys -t sysfs
-We'll also want to copy our /etc/hosts file so that we will have access to the correct network information:
-
-cp /etc/hosts /test/etc/hosts
-Finally, we can enter the chroot environment through a command like this:
-
-sudo chroot /test/ /bin/bash
-
-While there are certainly other technologies like Docker that provide more complete isolation, these chroot environments are easy to create and manage and are available from within the host operating system, which is advantageous at times. It is a good tool to have and is extremely light-weight.
-
+mount --rbind /some/where /else/where
 http://askubuntu.com/questions/28099/how-to-restore-a-system-after-accidentally-removing-all-kernels
+sysfs vs procfs
+Sysfs was designed to represent the whole device model as seen from the Linux kernel. It contains information about devices, drivers and buses and their interconnections. In order to represent the hierarchy and the interconnections sysfs is heavily structured and contains a lot of links between the individual directories. 
+procfs was originally designed to export all kind of process information such as the current status of the process, or all open file descriptors to the user space.
 
 RECOVERY 
 -----------------------------------------------------------------
-Performing the chroot
-cd /
-mount -t ext3 /dev/sda1 /mnt
-mount -t proc proc /mnt/proc
-mount -t sysfs sys /mnt/sys
-mount -o bind /dev /mnt/dev
-If your /boot directory is on a different partition from your /, and you want to manipulate files on it (e.g., if you'll be working with GRUB, performing a kernel upgrade, etc.), you'll also need to mount that partition. If it's at /dev/sda2 and its filetype is ext2, then do:
+Open Terminal
+Mount the Ubuntu partition: sudo mount /dev/sdXY /mnt
+Mount some special partitions:
 
-mount -t ext2 /dev/sda2 /mnt/boot
-Similarly for any other parts of your filesystem (/var, /usr) that reside on separate partitions but which you need access to. Generally when you're chrooting to fix something you won't need access to /home, so you don't need to bother with it.
-
-(It's also possible to mount filesystems after you've chrooted, but it's smarter to do so beforehand. The reason is that when you do it after, the outside/kernel environment won't know about the mounted filesystems, so if you forget to umount them before exiting the chroot, the system won't know to umount them when it shuts down, either. This could damage those filesystems.)
-
-If you've setup your network and want to use it in the chrooted system, copy over /etc/resolv.conf so that you'll be able to resolve domain names:
-
-cp -L /etc/resolv.conf /mnt/etc/resolv.conf
-Now you're ready to move into the mounted filesystem:
-
-chroot /mnt /bin/bash
-
+sudo mount --bind /dev /mnt/dev
+sudo mount --bind /proc /mnt/proc
+sudo mount --bind /sys /mnt/sys
+Chroot into the /mnt: sudo chroot /mnt
+(optional) When you are connected to a network, use the DNS servers from your Live environment (otherwise host names can possibly not be resolved):
+cp /etc/resolv.conf /mnt/etc/resolv.conf
+Install the Linux kernel: apt-get install linux-image-generic (no sudo required as you are root after a chroot)
+After a successful installation of the kernel, get out the chroot and unmount some filesystems:
+exit
+sudo umount /mnt/sys
+sudo umount /mnt/proc
+sudo umount /mnt/dev
+sudo umount /mnt
 
 
 
 Fakeroot
-------------------------------------------------------------------------------------------
-
-fakechroot runs a command in an environment were is additional
-       possibility to use chroot(8) command without root privileges.  This is
-       useful for allowing users to create own chrooted environment with
-       possibility to install another packages without need for root
-       privileges.
-       
-       Gives a fake root environment. This package is intended to enable something like: dpkg-buildpackage -rfakeroot i.e. to remove the need to become root for a package build. This is done by setting LD_PRELOAD to libfakeroot.so, which provides wrappers around getuid, chown, chmod, mknod, stat, ..., thereby creating a fake root environment. If you don't understand any of this, you do not need fakeroot!
+========================================================================================================================
+Gives a fake root environment. This package is intended to enable something like: dpkg-buildpackage -rfakeroot i.e. to remove the need to become root for a package build.
+This is done by setting LD_PRELOAD to libfakeroot.so, which provides wrappers around getuid, chown, chmod, mknod, stat, ..., thereby creating a fake root environment. If you don't understand any of this, you do not need fakeroot!
        
 As long as you are within the fakeroot shell, it looks like if you are root - as long as you do not try to do anything that really needs root privileges. And this is exactly what a packaging tool need to make packages that will make sense on any machine.
 
-In fact, when you use fakeroot for packaging, what you want to achieve is to make the tools you run under fakeroot to see your files as owned by root. Nothing more, nothing less. So in fact, su or sudo will not work for getting the right file ownership.
+it is a good idea, for security reason, to avoid doing as root everything that could be done as normal user, even if you can run sudo or su because it is your machine. fakeroot has two usages 1) it fools programs into believing you are indeed root user, which some badly written proprietary software may require even if not needed (usually Windows developer gone Linux) and 2) it allow emulating file mode and ownership changes which you wouldn't otherwise be able to do, mainly to create a tar file with correct permissions and ownership, useful for example when packaging software
 
-       
-
-This is very dirty hack, but it works. I mean you can use debootstrap on
-your user account without root privileges.
-
-An example session from my system:
-
-dexter@pepper!sid:~$ fakeroot
-root@pepper!sid:~# export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin
-root@pepper!sid:~# /usr/sbin/chroot /tmp/fakeroot /bin/bash
-root@pepper:/tmp/fakeroot# cd /
-root@pepper:/# id
-uid=0(root) gid=0(root) groups=1001(dexter)
-root@pepper:/# apt-get install libfreetype6-dev
-Reading Package Lists...
-
-akechroot replaces some libc library functions (chroot(2), open(2), etc.) by ones that simulate the effect of being called with root privileges.
-
-These wrapper functions are in a shared library /usr/lib/fakechroot/libfakechroot.so which is loaded through the LD_PRELOAD mechanism of the dynamic loader. (See ld.so(8))
-
-In fake chroot you can install Debian bootstrap with debootstrap command. In this environment you can use i.e. apt-get(8) command to install another packages. You don't need a special privileges and you can run it from common user's account.
-
-fakechroot fakeroot debootstrap sid /tmp/sid
-
+Nothing more than what happens with your own user. Absolutely nothing more. If you fakeroot (which when called gives you a new shell, like sudo would), pretend to do stuff that you needed permission for, and exit, absolutely nothing would happen.
 
 
 swapon swapoff
---------------------------------------------------------------------------------------------------------------------------------------
+===========================================================================================================================
 What command can be used to force release everything in swap partition back to memory ?
-
 Presume that I have enough memory
 
 You can also clear your swap by running swapoff -a and then swapon -a as root instead of rebooting to achieve the same effect.
-
-http://askubuntu.com/questions/103242/is-it-safe-to-turn-swap-off-permanently/103871#103871
-
-http://www.thegeekstuff.com/2010/08/how-to-add-swap-space/
-
 You can either use a dedicated hard drive partition to add new swap space, or create a swap file on an existing filesystem and use it as swap space.
+Use a File for Additional Swap Space
+The following dd command example creates a swap file with the name “myswapfile” under /root directory with a size of 1024MB (1GB).
 
+# dd if=/dev/zero of=/root/myswapfile bs=1M count=1024
+1024+0 records in
+1024+0 records out
+
+# chmod 600 /root/myswapfile
+Make this file as a swap file using mkswap command.
+
+# mkswap /root/myswapfile
+Setting up swapspace version 1, size = 1073737 kB
+Enable the newly created swapfile.
+# swapon /root/myswapfile
 
 
 KERNEL PATCHING & CUSTOMIZATION
------------------------------------------------------------------------------------------
+===========================================================================================================================
 
 http://www.thegeekstuff.com/2013/06/compile-linux-kernel/
-http://www.linux.org/threads/the-linux-kernel-configuring-the-kernel-part-1.4274/
-http://www.carlos-roque.com/2015/05/20/building-and-installing-a-patched-ubuntu-kernel-for-the-surface-pro-3/
-https://www.kernel.org/doc/Documentation/applying-patches.txt
 http://www.linuxuser.co.uk/tutorials/compile-your-own-kernel-tutorial
-
-
-
 http://www.howtogeek.com/howto/ubuntu/how-to-customize-your-ubuntu-kernel/
 https://www.howtoforge.com/kernel_compilation_ubuntu_p2
 http://www.cyberciti.biz/faq/debian-ubuntu-building-installing-a-custom-linux-kernel/
+
+Also, when there is a critical update done to the kernel, you can use yum, or apt-get to update the kernel on your Linux system.
+
+However you might encounter certain situation, where you may have to compile kernel from source. The following are few situation where you may have to compile Kernel on your Linux system.
+To enable experimental features that are not part of the default kernel.
+To enable support for a new hardware that is not currently supported by the default kernel.
+To debug the kernel
+Or, just to learn how kernel works, you might want to explore the kernel source code, and compile it on your own.
+
+Download the Latest Stable Kernel from kernel.org
+# cd /usr/src/
+# wget https://www.kernel.org/pub/linux/kernel/v3.x/linux-3.9.3.tar.xz
+# tar -xvJf linux-3.9.3.tar.xz
+
+The kernel contains nearly 3000 configuration options. You can take any one of configuration from the distro, and on top of that you can add your own configuration, or you can configure the kernel from scratch, or you can use the default config provided by the kernel.
+
+# cd linux-3.9.3
+# make menuconfig
+
+The make menuconfig, will launch a text-based user interface with default configuration options . You should have installed “libncurses and libncurses-devel” packages for this command to work.
+
+We will use the default config provided by the kernel. So select “Save” and save the config in the file name “.config”.
+
+Compile the Linux Kernel
+Compile the main kernel:
+# make
+Compile the kernel modules:
+# make modules
+Install the kernel modules:
+# make modules_install
+At this point, you should see a directory named /lib/modules/3.9.3/ in your system.
+
+Install the new kernel on the system:
+# make install
+The make install command will create the following files in the /boot directory.
+vmlinuz-3.9.3 – The actual kernel
+System.map-3.9.3 – The symbols exported by the kernel
+initrd.img-3.9.3 – initrd image is temporary root file system used during boot process
+config-3.9.3 – The kernel configuration file
+The command “make install” will also update the grub.cfg by default. So we don’t need to manually edit the grub.cfg file.
+
+6. Boot Linux to the new Kernel
+To use the new kernel that you just compiled, reboot the system.
+# reboot
+
+The (hidden) file ‘.config’, located in the source code directory, tells the compiler what to build. The configuration file for each installed kernel is stored in the /boot directory, but you can capture the configuration of the current kernel (a good starting point) by typing ‘make oldconfig’.
+
+
+You can create a .deb also instaed ...........
+
+Step 10
+Compile the kernel
+
+Tell the build environment how many cores you want to use with ‘export CONCURRENCY_LEVEL=[number of cores]’. Begin the build process with ‘fakeroot make-kpkg –initrd –append-to-version=-luad kernel- image kernel-headers’, which takes about an hour on a Core Duo 2.7GHz system.
+
+Step 11
+Install kernel
+
+Warning: This is stage where you actually make some changes to your machine. Using our method means that we can install our custom kernel just like any other package. Type ‘sudo dpkg -i linux-image[version].deb’ and then, ‘sudo dpkg -i linux-headers-[version].deb’.
+
+
+
+fsck ,e2fsck,  fsck.ext2 
+===========================================================================================================================
+
+fsck is just the original name. When they came out with new file systems they would need a specific tool for each one, efsck for ext, e2fsck for ext2, dosfsck, fsckvfat. So they made fsck the front end that just calls whichever is the appropriate tool.
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
